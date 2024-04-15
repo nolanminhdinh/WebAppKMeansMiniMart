@@ -1,2 +1,7 @@
 matlpotlib  
 plotly
+pandas
+streamlit
+yfinance
+pandas-datareader
+streamlit-option-menu
