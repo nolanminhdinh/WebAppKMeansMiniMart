@@ -1,7 +1,4 @@
-pandas
-plotly
 streamlit
-yfinance
-pandas-datareader
+pandas
 matplotlib
-streamlit-option-menu
+scikit-learn
