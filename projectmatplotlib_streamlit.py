@@ -1,59 +1,55 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np 
-import plotly.express as px 
+from sklearn.cluster import KMeans
+from mpl_toolkits.mplot3d import Axes3D
 
-st.title('Interactive Dashboard')
-st.subheader('Interact with this dashboard using the widgets on the sidebar')
+st.set_page_config(layout="wide")
+st.title("🧠 Phân cụm KMeans với dữ liệu Minimart")
 
-movies_data = pd.read_csv("https://raw.githubusercontent.com/nv-thang/Data-Visualization-Course/main/movies.csv")
-movies_data.info()
-movies_data.duplicated()
-movies_data.count()
-movies_data.dropna()
+# Tải dữ liệu
+uploaded_file = st.file_uploader("Tải lên file dữ liệu (.csv)", type=["csv"])
 
-year_list = movies_data['year'].unique().tolist()
-score_rating = movies_data['score'].unique().tolist()
-genre_list = movies_data['genre'].unique().tolist()
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+    st.subheader("📊 Dữ liệu ban đầu")
+    st.dataframe(df.head(10))
 
-with st.sidebar:
-    st.write("Select a range on the slider (it represents movie score) to view the total number of movies in a genre that falls within that range ")
-    new_score_rating = st.slider(label = "Choose a value:", min_value = 1.0, max_value = 10.0, value = (3.0,4.0))
-    st.write("Select your preferred genre(s) and year to view the movies released that year and on that genre")
-    new_genre_list = st.multiselect('Choose Genre:', genre_list, default = ['Animation', 'Horror', 'Fantasy', 'Romance'])
-    year = st.selectbox('Choose a Year', year_list, 0)
+    # Chọn các cột để phân cụm
+    cols = st.multiselect("Chọn các cột dùng cho phân cụm:", df.select_dtypes(include=['number']).columns.tolist(), default=['Distance', 'Grocery', 'Milk'])
 
-score_info = (movies_data['score'].between(*new_score_rating))
-new_genre_year = (movies_data['genre'].isin(new_genre_list)) & (movies_data['year'] == year)
+    if len(cols) >= 2:
+        X = df[cols].dropna()
 
+        k = st.slider("Chọn số cụm (k):", 2, 10, 3)
 
-col1, col2 = st.columns([2,3])
-with col1:
-    st.write("""#### Lists of movies filtered by year and Genre """)
-    dataframe_genre_year = movies_data[new_genre_year].groupby(['name', 'genre'])['year'].sum()
-    dataframe_genre_year = dataframe_genre_year.reset_index()
-    st.dataframe(dataframe_genre_year, width = 500)
+        # Huấn luyện mô hình
+        model = KMeans(n_clusters=k, random_state=42)
+        clusters = model.fit_predict(X)
+        df['cluster'] = clusters
 
-with col2:
-    st.write("""#### User score of movies and their genre """)
-    rating_count_year = movies_data[score_info].groupby('genre')['score'].count()
-    rating_count_year = rating_count_year.reset_index()
-    figpx = px.line(rating_count_year, x = 'genre', y = 'score')
-    st.plotly_chart(figpx)
+        st.success(f"✅ Hoàn tất phân cụm với k = {k}")
 
+        # Hiển thị thống kê từng cụm
+        selected_cluster = st.selectbox("Chọn cụm để xem chi tiết:", sorted(df['cluster'].unique()))
+        st.write(df[df['cluster'] == selected_cluster].describe())
 
+        # Vẽ biểu đồ 3D nếu có đủ 3 cột
+        if len(cols) >= 3:
+            fig = plt.figure(figsize=(10, 6))
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(df[cols[0]], df[cols[1]], df[cols[2]], 
+                       c=df['cluster'], cmap='viridis', s=60)
 
-st.write("""Average Movie Budget, Grouped by Genre""")
-avg_budget = movies_data.groupby('genre')['budget'].mean().round()
-avg_budget = avg_budget.reset_index()
-genre = avg_budget['genre']
-avg_bud = avg_budget['budget']
+            centers = model.cluster_centers_
+            ax.scatter(centers[:, 0], centers[:, 1], centers[:, 2], 
+                       c='black', s=200, alpha=0.5, marker='s', label='Tâm cụm')
 
+            ax.set_xlabel(cols[0])
+            ax.set_ylabel(cols[1])
+            ax.set_zlabel(cols[2])
+            ax.legend()
+            st.pyplot(fig)
 
-fig = plt.figure(figsize = (19, 10))
-plt.bar(genre, avg_bud, color = 'maroon')
-plt.xlabel('genre')
-plt.ylabel('budget')
-plt.title('Matplotlib Bar Chart Showing the Average \Budget of Movies in Each Genre')
-st.pyplot(fig)
+    else:
+        st.warning("🔴 Cần chọn ít nhất 2 cột để phân cụm.")
