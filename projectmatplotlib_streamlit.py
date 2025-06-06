@@ -7,6 +7,11 @@ from mpl_toolkits.mplot3d import Axes3D
 st.set_page_config(layout="wide")
 st.title("🧠 Phân cụm KMeans với dữ liệu Minimart")
 
+# Hàm cache chuyển DataFrame thành CSV
+@st.cache_data
+def convert_df(df):
+    return df.to_csv(index=False).encode('utf-8')
+
 # Tải dữ liệu
 uploaded_file = st.file_uploader("Tải lên file dữ liệu (.csv)", type=["csv"])
 
@@ -20,6 +25,22 @@ if uploaded_file:
 
     if len(cols) >= 2:
         X = df[cols].dropna()
+
+        # Thêm phần gợi ý số cụm bằng biểu đồ Elbow
+        with st.expander("📉 Gợi ý số cụm bằng phương pháp Elbow"):
+            distortions = []
+            K_range = range(1, 11)
+            for i in K_range:
+                km = KMeans(n_clusters=i, random_state=42)
+                km.fit(X)
+                distortions.append(km.inertia_)
+    
+            fig2, ax2 = plt.subplots()
+            ax2.plot(K_range, distortions, 'bo-')
+            ax2.set_xlabel('Số cụm (k)')
+            ax2.set_ylabel('Inertia')
+            ax2.set_title('Biểu đồ Elbow')
+            st.pyplot(fig2)
 
         k = st.slider("Chọn số cụm (k):", 2, 10, 3)
 
@@ -50,6 +71,14 @@ if uploaded_file:
             ax.set_zlabel(cols[2])
             ax.legend()
             st.pyplot(fig)
-
+            
+        # Tải dữ liệu sau khi phân cụm
+        csv = convert_df(df)
+        st.download_button(
+            label="📥 Tải dữ liệu đã phân cụm",
+            data=csv,
+            file_name='clustered_data.csv',
+            mime='text/csv',
+        )
     else:
         st.warning("🔴 Cần chọn ít nhất 2 cột để phân cụm.")
